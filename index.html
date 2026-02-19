@@ -58,18 +58,17 @@ generarBtn.addEventListener("click", async () => {
             "https://www.arcgis.com/sharing/rest/oauth2/token?client_id=k0gInzwOWOcJVqoV&client_secret=2eb5e05c126243bc9bf9f706b87c0f45&grant_type=client_credentials&expiration=1440&f=json",
             { method: "POST" }
         );
-        const tokenData = await tokenRes.json();
-        const token = tokenData.access_token;
+        const token = (await tokenRes.json()).access_token;
 
-        // 2. CONSULTA ÚLTIM REGISTRE
+        // 2. CONSULTAR *TOTS* ELS id_crema
         const query =
             "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_7408c3fb025a41cdb4d80693ba668e23/FeatureServer/0/query";
 
         const params = new URLSearchParams({
             where: "(id_crema IS NOT NULL) AND (id_crema <> '')",
             outFields: "id_crema",
-            orderByFields: "OBJECTID DESC",
-            resultRecordCount: 1,
+            returnGeometry: false,
+            orderByFields: "OBJECTID ASC",
             f: "json",
             token: token
         });
@@ -77,28 +76,34 @@ generarBtn.addEventListener("click", async () => {
         const fet = await fetch(query + "?" + params.toString());
         const data = await fet.json();
 
-        let ultimNumero = 0;
-
-        if (data.features && data.features.length > 0) {
-            let valor = data.features[0].attributes.id_crema;
-
-            // 🔥 EXTREURE NOMÉS LA PART NUMÈRICA FINALS (solució universal)
-            const digits = valor.match(/(\d+)/g);
-            if (!digits) throw new Error("No s'han trobat dígits al camp id_crema.");
-
-            const numero = parseInt(digits[digits.length - 1], 10);
-
-            if (isNaN(numero)) throw new Error(`No s'ha pogut convertir '${valor}' a número.`);
-
-            ultimNumero = numero;
+        if (!data.features || data.features.length === 0) {
+            throw new Error("No hi ha cap ID registrat.");
         }
 
-        // 3. GENERAR NOU ID
+        // 3. Extreure la part numèrica de TOTS els id_crema
+        let maxNumero = 0;
+
+        data.features.forEach(f => {
+            const id = f.attributes.id_crema;
+
+            if (typeof id === "string") {
+                const dig = id.match(/(\d+)/g); // obté totes les seqüències de dígits
+                if (dig) {
+                    // agafem l’última seqüència numèrica, sempre la part numèrica final
+                    const n = parseInt(dig[dig.length - 1], 10);
+                    if (!isNaN(n) && n > maxNumero) {
+                        maxNumero = n; // mantenim el número més alt real
+                    }
+                }
+            }
+        });
+
+        // 4. GENERAR NOU ID
         const any = new Date().getFullYear();
-        const nouNumero = (ultimNumero + 1).toString().padStart(3, "0");
+        const nouNumero = (maxNumero + 1).toString().padStart(3, "0");
         const nouID = `${any}-CP${nouNumero}`;
 
-        // Mostrar
+        // mostrar
         pResultat.textContent = nouID;
         resultatDiv.style.display = "block";
 
@@ -117,6 +122,5 @@ copyBtn.addEventListener("click", () => {
     setTimeout(() => copyBtn.textContent = "Copiar", 2000);
 });
 </script>
-
 </body>
 </html>
