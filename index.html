@@ -54,3 +54,118 @@
 
     <div id="error" class="text-red-500 mt-4 font-semibold"></div>
 </div>
+    <script>
+const generarBtn = document.getElementById('generarBtn');
+const copyBtn = document.getElementById('copyBtn');
+const pResultat = document.getElementById('pResultatExpedient');
+const resultatDiv = document.getElementById('resultat');
+const errorDiv = document.getElementById('error');
+
+generarBtn.addEventListener('click', async () => {
+    resultatDiv.classList.add('hidden');
+    copyBtn.classList.add('hidden');
+    copyBtn.textContent = 'Copiar';
+    errorDiv.textContent = '';
+    generarBtn.disabled = true;
+    generarBtn.textContent = 'Generant...';
+
+    try {
+        // PAS 1: TOKEN
+        const tokenResponse = await fetch(
+            'https://www.arcgis.com/sharing/rest/oauth2/token?client_id=k0gInzwOWOcJVqoV&client_secret=2eb5e05c126243bc9bf9f706b87c0f45&grant_type=client_credentials&expiration=1440&f=json',
+            { method: 'POST' }
+        );
+
+        if (!tokenResponse.ok) throw new Error("No s'ha pogut obtenir el token.");
+
+        const tokenData = await tokenResponse.json();
+        const token = tokenData.access_token;
+        
+        // PAS 2: CONSULTAR ÚLTIM REGISTRE
+        const queryUrl = `https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_7408c3fb025a41cdb4d80693ba668e23/FeatureServer/0/query`;
+
+        const params = new URLSearchParams({
+            where: "(id_crema IS NOT NULL) AND (id_crema <> '')",
+            outFields: "id_crema",
+            orderByFields: "OBJECTID DESC",
+            resultRecordCount: 1,
+            f: "json",
+            token: token
+        });
+
+        const featureResponse = await fetch(`${queryUrl}?${params.toString()}`);
+        if (!featureResponse.ok) throw new Error("Error en consultar l'últim ID.");
+
+        const featureData = await featureResponse.json();
+
+        let ultimNumero = 0;
+
+        if (featureData.features && featureData.features.length > 0) {
+            const atributs = featureData.features[0].attributes;
+
+            if (atributs && atributs.id_crema) {
+                const expedientCompletAnterior = atributs.id_crema;
+
+                if (typeof expedientCompletAnterior !== "string" || expedientCompletAnterior.length < 4) {
+                    throw new Error(`El format rebut ('${expedientCompletAnterior}') no és vàlid.`);
+                }
+
+                const partNumericaStr = expedientCompletAnterior.slice(-4);
+                const numConvertit = parseInt(partNumericaStr, 10);
+
+                if (!isNaN(numConvertit)) {
+                    ultimNumero = numConvertit;
+                } else {
+                    throw new Error(`Error convertint '${partNumericaStr}' a número.`);
+                }
+            }
+        }
+
+        // PAS 3: GENERAR NOU ID
+        const nouNumero = ultimNumero + 1;
+        const anyActual = new Date().getFullYear();
+        const numExpedientFormatat = String(nouNumero).padStart(4, '0');
+        const nouExpedient = `${anyActual}-CP${numExpedientFormatat}`;
+
+        // Mostrar resultat
+        pResultat.textContent = nouExpedient;
+        resultatDiv.classList.remove('hidden');
+        copyBtn.classList.remove('hidden');
+
+    } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+    } finally {
+        generarBtn.disabled = false;
+        generarBtn.textContent = 'GENERAR EXPEDIENT';
+    }
+});
+
+// COPIAR
+copyBtn.addEventListener('click', () => {
+    const textACopiar = pResultat.textContent;
+    if (!textACopiar) return;
+
+    const textArea = document.createElement("textarea");
+    textArea.value = textACopiar;
+    textArea.style.position = "absolute";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+
+    textArea.select();
+
+    try {
+        document.execCommand('copy');
+        copyBtn.textContent = 'Copiat ✓';
+    } catch (err) {
+        copyBtn.textContent = 'Error';
+    }
+
+    document.body.removeChild(textArea);
+
+    setTimeout(() => {
+        copyBtn.textContent = 'Copiar';
+    }, 2000);
+});
+</script>
+</body>
+</html>
