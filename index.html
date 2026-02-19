@@ -1,88 +1,69 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Número d'ID de Crema</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador d'ID de Crema</title>
 
-    <style>
-        body {
-            background-color: #1a0f0f;
-        }
-        .btn-generar {
-            background-color: #e25822; /* taronja intens */
-            color: #1a0f0f;
-            transition: background-color 0.3s ease;
-        }
-        .btn-generar:hover {
-            background-color: #ff7b47;
-        }
-        .btn-generar:disabled {
-            background-color: #6b2e00;
-                       border: 2px solid #ff7b47;
-            color: #ff7b47;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-weight: bold;
-            transition: all 0.2s ease-in-out;
-            min-width: 110px;
-        }
-        .btn-copy:hover {
-            background-color: #ff7b47;
-            color: #1a0f0f;
-        }
-    </style>
+<style>
+    body { background-color: #1b0f0f; color: #ffb199; font-family: Arial, sans-serif; }
+    .container { background:#2d1414; padding:30px; border-radius:12px; max-width:420px; margin:auto; text-align:center; }
+    .btn {
+        padding:12px 25px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;
+        background:#e25722; color:#1b0f0f; transition:0.2s;
+    }
+    .btn:hover { background:#ff7c47; }
+    .copy-btn {
+        padding:6px 14px; border:2px solid #ff7c47; background:transparent;
+        color:#ff7c47; border-radius:8px; cursor:pointer; font-weight:bold;
+    }
+    .copy-btn:hover { background:#ff7c47; color:#1b0f0f; }
+    #resultat { margin-top:20px; border:2px solid #ff7c47; padding:15px; border-radius:10px; display:none; }
+    #error { color:#ff4f4f; margin-top:15px; font-weight:bold; }
+</style>
+
 </head>
+<body>
 
-<body class="flex items-center justify-center h-screen text-orange-400">
+<div class="container">
+    <h1 style="color:#ff7c47;">Generador d'ID de Crema</h1>
 
-<div class="text-center p-8 rounded-lg shadow-2xl max-w-md w-full" style="background-color: #2e1414;">
-    <h1 class="text-3xl font-bold mb-8">Generador d'ID de Crema</h1>
+    <button id="generarBtn" class="btn">GENERAR ID</button>
 
-    <button id="generarBtn" class="btn-generar font-bold py-3 px-6 rounded-lg text-lg mb-6">
-        GENERAR ID
-    </button>
-
-    <div id="resultat" class="hidden mt-4 p-4 border-2 border-orange-500 rounded-lg bg-black bg-opacity-20">
-        <h2 class="text-xl font-semibold">El teu número d'ID és:</h2>
-        <div class="flex items-center justify-center mt-2 space-x-4">
-            <p id="pResultatExpedient" class="text-2xl font-mono"></p>
-            <button id="copyBtn" class="btn-copy hidden">Copiar</button>
-        </div>
+    <div id="resultat">
+        <h3>ID Generat:</h3>
+        <p id="pResultatExpedient" style="font-size:24px; font-family:monospace;"></p>
+        <button id="copyBtn" class="copy-btn">Copiar</button>
     </div>
 
-    <div id="error" class="text-red-500 mt-4 font-semibold"></div>
+    <div id="error"></div>
 </div>
-    <script>
-const generarBtn = document.getElementById('generarBtn');
-const copyBtn = document.getElementById('copyBtn');
-const pResultat = document.getElementById('pResultatExpedient');
-const resultatDiv = document.getElementById('resultat');
-const errorDiv = document.getElementById('error');
 
-generarBtn.addEventListener('click', async () => {
-    resultatDiv.classList.add('hidden');
-    copyBtn.classList.add('hidden');
-    copyBtn.textContent = 'Copiar';
-    errorDiv.textContent = '';
+<script>
+const generarBtn = document.getElementById("generarBtn");
+const resultatDiv = document.getElementById("resultat");
+const pResultat = document.getElementById("pResultatExpedient");
+const copyBtn = document.getElementById("copyBtn");
+const errorDiv = document.getElementById("error");
+
+generarBtn.addEventListener("click", async () => {
+    errorDiv.textContent = "";
+    resultatDiv.style.display = "none";
+    generarBtn.textContent = "Generant...";
     generarBtn.disabled = true;
-    generarBtn.textContent = 'Generant...';
 
     try {
-        // PAS 1: TOKEN
-        const tokenResponse = await fetch(
-            'https://www.arcgis.com/sharing/rest/oauth2/token?client_id=k0gInzwOWOcJVqoV&client_secret=2eb5e05c126243bc9bf9f706b87c0f45&grant_type=client_credentials&expiration=1440&f=json',
-            { method: 'POST' }
+        // 1. TOKEN
+        const tokenRes = await fetch(
+            "https://www.arcgis.com/sharing/rest/oauth2/token?client_id=k0gInzwOWOcJVqoV&client_secret=2eb5e05c126243bc9bf9f706b87c0f45&grant_type=client_credentials&expiration=1440&f=json",
+            { method: "POST" }
         );
-
-        if (!tokenResponse.ok) throw new Error("No s'ha pogut obtenir el token.");
-
-        const tokenData = await tokenResponse.json();
+        const tokenData = await tokenRes.json();
         const token = tokenData.access_token;
-        
-        // PAS 2: CONSULTAR ÚLTIM REGISTRE
-        const queryUrl = `https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_7408c3fb025a41cdb4d80693ba668e23/FeatureServer/0/query`;
+
+        // 2. CONSULTA ÚLTIM REGISTRE
+        const query =
+            "https://services-eu1.arcgis.com/jukYmBukbIJBEB9m/arcgis/rest/services/survey123_7408c3fb025a41cdb4d80693ba668e23/FeatureServer/0/query";
 
         const params = new URLSearchParams({
             where: "(id_crema IS NOT NULL) AND (id_crema <> '')",
@@ -93,79 +74,49 @@ generarBtn.addEventListener('click', async () => {
             token: token
         });
 
-        const featureResponse = await fetch(`${queryUrl}?${params.toString()}`);
-        if (!featureResponse.ok) throw new Error("Error en consultar l'últim ID.");
-
-        const featureData = await featureResponse.json();
+        const fet = await fetch(query + "?" + params.toString());
+        const data = await fet.json();
 
         let ultimNumero = 0;
 
-        if (featureData.features && featureData.features.length > 0) {
-            const atributs = featureData.features[0].attributes;
+        if (data.features && data.features.length > 0) {
+            let valor = data.features[0].attributes.id_crema;
 
-            if (atributs && atributs.id_crema) {
-                const expedientCompletAnterior = atributs.id_crema;
+            // 🔥 EXTREURE NOMÉS LA PART NUMÈRICA FINALS (solució universal)
+            const digits = valor.match(/(\d+)/g);
+            if (!digits) throw new Error("No s'han trobat dígits al camp id_crema.");
 
-                if (typeof expedientCompletAnterior !== "string" || expedientCompletAnterior.length < 4) {
-                    throw new Error(`El format rebut ('${expedientCompletAnterior}') no és vàlid.`);
-                }
+            const numero = parseInt(digits[digits.length - 1], 10);
 
-                const partNumericaStr = expedientCompletAnterior.slice(-4);
-                const numConvertit = parseInt(partNumericaStr, 10);
+            if (isNaN(numero)) throw new Error(`No s'ha pogut convertir '${valor}' a número.`);
 
-                if (!isNaN(numConvertit)) {
-                    ultimNumero = numConvertit;
-                } else {
-                    throw new Error(`Error convertint '${partNumericaStr}' a número.`);
-                }
-            }
+            ultimNumero = numero;
         }
 
-        // PAS 3: GENERAR NOU ID
-        const nouNumero = ultimNumero + 1;
-        const anyActual = new Date().getFullYear();
-        const numExpedientFormatat = String(nouNumero).padStart(4, '0');
-        const nouExpedient = `${anyActual}-CP${numExpedientFormatat}`;
+        // 3. GENERAR NOU ID
+        const any = new Date().getFullYear();
+        const nouNumero = (ultimNumero + 1).toString().padStart(3, "0");
+        const nouID = `${any}-CP${nouNumero}`;
 
-        // Mostrar resultat
-        pResultat.textContent = nouExpedient;
-        resultatDiv.classList.remove('hidden');
-        copyBtn.classList.remove('hidden');
+        // Mostrar
+        pResultat.textContent = nouID;
+        resultatDiv.style.display = "block";
 
-    } catch (error) {
-        errorDiv.textContent = `Error: ${error.message}`;
-    } finally {
-        generarBtn.disabled = false;
-        generarBtn.textContent = 'GENERAR EXPEDIENT';
+    } catch (err) {
+        errorDiv.textContent = "Error: " + err.message;
     }
+
+    generarBtn.textContent = "GENERAR ID";
+    generarBtn.disabled = false;
 });
 
 // COPIAR
-copyBtn.addEventListener('click', () => {
-    const textACopiar = pResultat.textContent;
-    if (!textACopiar) return;
-
-    const textArea = document.createElement("textarea");
-    textArea.value = textACopiar;
-    textArea.style.position = "absolute";
-    textArea.style.left = "-9999px";
-    document.body.appendChild(textArea);
-
-    textArea.select();
-
-    try {
-        document.execCommand('copy');
-        copyBtn.textContent = 'Copiat ✓';
-    } catch (err) {
-        copyBtn.textContent = 'Error';
-    }
-
-    document.body.removeChild(textArea);
-
-    setTimeout(() => {
-        copyBtn.textContent = 'Copiar';
-    }, 2000);
+copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(pResultat.textContent);
+    copyBtn.textContent = "Copiat ✓";
+    setTimeout(() => copyBtn.textContent = "Copiar", 2000);
 });
 </script>
+
 </body>
 </html>
